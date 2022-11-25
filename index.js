@@ -117,7 +117,7 @@ app.get('/users/role/:email', verifyJwt, async (req, res)=> {
 })
 
 // get Product Categories 
-app.get('/product-categories', verifyJwt, async (req, res) => {
+app.get('/product-categories', async (req, res) => {
   try{
     const result = await categoriesCollection.find({}).toArray();
     res.send(result);
@@ -130,6 +130,23 @@ app.get('/product-categories', verifyJwt, async (req, res) => {
   }
 })
 
+// get Product by Categories 
+app.get('/category/:id', async (req, res) => {
+  try{
+    const id = req.params.id;
+    const category = await categoriesCollection.findOne({category_id:id});
+    const result = await booksCollection.find({category:category.category}).toArray();
+    res.send(result); 
+  } catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+
+// Add a Product by Admin 
 app.post('/add-products', verifyJwt, async (req, res) => {
   try{
     const decoded = req.decoded;
