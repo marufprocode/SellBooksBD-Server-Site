@@ -192,6 +192,31 @@ app.get('/all-sellers/:role', verifyJwt, async (req, res) => {
   }
 })
 
+// verify the seller from admin 
+app.patch('/verify-seller/:id', verifyJwt, async (req, res) => {
+  try{
+    const decoded = req.decoded;
+    if(decoded.email !== req.query.email){
+      res.status(403).send({
+        success: false,
+        message: 'Unauthorized access'
+      })
+    }
+    const id = req.params.id;
+    const result = await usersCollection.updateOne({uid:id}, {$set:req.body});
+    if(result.modifiedCount){
+      res.send(result);
+    }
+    
+  } catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+
 app.listen(port, () => {
   console.log(`Listening to port ${port}`);
 });
