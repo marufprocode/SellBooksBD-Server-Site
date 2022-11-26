@@ -169,6 +169,29 @@ app.post('/add-products', verifyJwt, async (req, res) => {
   }
 })
 
+// get all sellers list 
+app.get('/all-sellers/:role', verifyJwt, async (req, res) => {
+  try{
+    const decoded = req.decoded;
+    if(decoded.email !== req.query.email){
+      res.status(403).send({
+        success: false,
+        message: 'Unauthorized access'
+      })
+    }
+    const role = req.params.role;
+    const result = await usersCollection.find({role:role}).toArray();
+    res.send(result);
+    
+  } catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+
 app.listen(port, () => {
   console.log(`Listening to port ${port}`);
 });
