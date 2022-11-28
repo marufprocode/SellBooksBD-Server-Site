@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const app = express();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -33,6 +34,8 @@ const booksCollection = client.db("sellBooksAdmin").collection("books");
 const categoriesCollection = client.db("sellBooksAdmin").collection("categories");
 const bookingsCollection = client.db("sellBooksAdmin").collection("bookings");
 const wishListCollection = client.db("sellBooksAdmin").collection("wishlist");
+const paymentCollection = client.db("sellBooksAdmin").collection("payments");
+const blogsCollection = client.db("sellBooksAdmin").collection("blogs");
 
 app.get("/", (req, res) => {
   res.send("Hello From MongoDB");
@@ -76,6 +79,54 @@ function verifyJwt (req, res, next) {
     next();
   })
 }
+
+// Create Stripe Payment -intent
+app.post("/create-payment-intent", async (req, res) => {
+  try{
+    const booking = req.body;
+    const amount = booking.price*100;
+    // Create a PaymentIntent with the order amount and currency
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: "usd",
+      "payment_method_types": [
+        "card"
+      ]
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch(error){
+    console.log(error.name, error.message);
+      res.send({
+        success: false,
+        error: error.message,
+      });
+  }
+});
+
+app.post("/payments", async (req, res) => {
+  try{
+    const payment = req.body;
+    const result = await paymentCollection.insertOne(payment);
+    const updateBooks = await booksCollection.updateOne({_id:ObjectId(payment.bookId)}, {$set: {available:false, isPaid:true, advertised:false}});
+    const updateBooking = await bookingsCollection.updateOne({_id:ObjectId(payment.bookingId)}, {$set: {paymentStatus: 'Paid', transactionId: payment.transactionID}})
+    res.send(result);
+    /* else{
+      req.body['paymentStatus']= 'Paid';
+      req.body['transactionId']= payment.transactionID;
+      const updateBooking = await bookingsCollection.insertOne(req.body);
+    } */
+    }
+  catch(error){
+    console.log(error.name, error.message);
+      res.send({
+        success: false,
+        error: error.message,
+      });
+  }
+});
 
 // Add a user in the database when first time logging in in our site
 app.post("/users", async (req, res) => {
@@ -137,7 +188,7 @@ app.get('/category/:id', async (req, res) => {
   try{
     const id = req.params.id;
     const category = await categoriesCollection.findOne({category_id:id});
-    const result = await booksCollection.find({category:category.category}).toArray();
+    const result = await booksCollection.find({category:category.category, available:true}).toArray();
     res.send(result); 
   } catch(error){
     console.log(error.name, error.message);
@@ -452,7 +503,6 @@ app.get('/my-products', verifyJwt, async (req, res) => {
   }
 })
 
-
 // get all the products by Seller 
 app.get('/my-products', verifyJwt, async (req, res) => {
   try{
@@ -529,6 +579,33 @@ app.get('/advertised-items', async (req, res) => {
         message: 'No Items Found'
       })
     }
+  }catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+
+// Blogs Route 
+app.get('/blogs', async (req, res) => {
+  try{
+    const result = await blogsCollection.find({}).toArray();
+    res.send(result)
+  }catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+app.get('/blogs/:id', async (req, res) => {
+  try{
+    const id = req.params.id;
+    const result = await blogsCollection.findOne({_id:ObjectId(id)});
+    res.send(result)
   }catch(error){
     console.log(error.name, error.message);
     res.send({
