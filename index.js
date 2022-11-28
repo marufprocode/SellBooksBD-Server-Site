@@ -368,6 +368,25 @@ app.get('/my-orders', verifyJwt, async (req, res) => {
   }
 })
 
+app.get('/bookingbyid/:id', async (req, res) => {
+  try{
+    const id = req.params.id;
+    const result = await bookingsCollection.findOne({_id:ObjectId(id)});
+    if(result){
+      res.send(result); 
+    }else{
+      const result = await wishListCollection.findOne({_id:ObjectId(id)});
+      res.send(result);
+    }
+  }catch(error){
+    console.log(error.name, error.message);
+    res.send({
+      success: false,
+      error: error.message,
+    });
+  }
+})
+
 // Add to Wishlist by User / Buyer 
 app.post('/addto-wishlist', async (req, res) => {
   try{
